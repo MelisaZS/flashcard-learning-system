@@ -373,6 +373,11 @@
       <h2>Session logs</h2>
       <p style="color:var(--muted);font-size:.88rem;margin-top:4px">Your activity is stored locally as anonymous events. Export them as a JSONL file (one JSON event per line) to submit to your team / assessor.</p>
       <div class="pillrow"><span class="mini">Recorded events: <b id="logCount">0</b></span><span class="mini">Code: <b id="logCode">—</b></span></div>
+      <div class="field" style="margin-top:16px;max-width:440px">
+        <label for="gameIdIn">Your Game ID (from the team tool, e.g. GM-AB12CD34EF90)</label>
+        <input id="gameIdIn" placeholder="GM-..." autocomplete="off">
+        <div class="hint">Paste the GM- code shown in your team tool (Export / Deployment tab). It is stamped into every exported event.</div>
+      </div>
       <div class="row">
         <button class="btn btn-primary" id="exportLogs">⬇ Export session logs (.jsonl)</button>
         <button class="btn btn-ghost danger" id="resetAll">Reset all progress</button>
@@ -480,18 +485,20 @@ function load(){
 function fresh(code){
   const prog={};CARDS.forEach(c=>prog[c.id]={status:"new",flips:0,seen:0});
   return {user:{code,consent:true,createdAt:new Date().toISOString()},
-          progress:prog,points:0,badges:[],logs:[]};
+          progress:prog,points:0,badges:[],logs:[],gameId:"",currentSession:null};
 }
 function save(){try{localStorage.setItem(LS,JSON.stringify(S));}catch(e){}}
 
-/* ---------- LOGGING ---------- */
-function log(event,extra={}){
-  S.logs.push(Object.assign({
+/* ---------- LOGGING (GPAF gpaf_log_format 1.0) ---------- */
+function newSessionId(){return "s-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,6);}
+function log(eventType,payload={}){
+  S.logs.push({
     ts:new Date().toISOString(),
-    user:S.user.code,
-    course:"COM4061",
-    event
-  },extra));
+    playerPseudoId:S.user.code,
+    sessionId:S.currentSession||"s-meta",
+    eventType,
+    payload
+  });
   save();
 }
 
@@ -527,7 +534,7 @@ function checkOb(){startBtn.disabled=!(codeIn.value.trim().length>=2&&consentIn.
 codeIn.oninput=checkOb;consentIn.onchange=checkOb;
 startBtn.onclick=()=>{
   S=fresh(codeIn.value.trim());save();
-  log("session_start",{detail:"first_run"});
+  log("app_init",{firstRun:true});
   $("#onboard").style.display="none";
   boot();
 };
@@ -610,7 +617,8 @@ function startSession(cfg){
   if(cfg.order==="shuffle")deck=shuffle(deck.slice());
   if(deck.length===0){toast("No cards match — adjust your selection");go("cats");return;}
   sess={deck,i:0,cfg,requeued:new Set(),done:0,total:deck.length};
-  log("session_begin",{category:cfg.cat,tier:cfg.tier,order:cfg.order,mode:cfg.practiceOnly?"practice":"normal",deckSize:deck.length});
+  S.currentSession=newSessionId();save();
+  log("session_start",{category:cfg.cat,tier:cfg.tier,order:cfg.order,mode:cfg.practiceOnly?"practice":"normal",deckSize:deck.length});
   // labels
   $("#st-cat").textContent=cfg.cat==="all"?"All categories":(CATS.find(c=>c.id===cfg.cat)||{}).name;
   $("#st-tier").textContent=cfg.tier==="all"?"All tiers":cfg.tier;
@@ -645,7 +653,7 @@ flip.onclick=()=>{
     const card=sess.deck[sess.i];
     S.progress[card.id].flips++;S.progress[card.id].seen++;
     S.points+=POINTS_FLIP;
-    log("card_flip",{cardId:card.id,category:card.cat,tier:card.tier});
+    log("score_update",{score:S.points,action:"flip",cardId:card.id,category:card.cat,tier:card.tier});
     save();
     $("#revealHint").style.display="none";
     $("#rateBtns").style.display="flex";
@@ -657,8 +665,8 @@ function rate(status){
   const card=sess.deck[sess.i];
   const prev=S.progress[card.id].status;
   S.progress[card.id].status=status;
-  if(status==="known"){S.points+=POINTS_KNOWN;log("card_known",{cardId:card.id,category:card.cat,tier:card.tier});}
-  else{S.points+=POINTS_PRACTICE;log("card_practice",{cardId:card.id,category:card.cat,tier:card.tier});
+  if(status==="known"){S.points+=POINTS_KNOWN;log("score_update",{score:S.points,action:"known",cardId:card.id,category:card.cat,tier:card.tier});}
+  else{S.points+=POINTS_PRACTICE;log("score_update",{score:S.points,action:"needs_practice",cardId:card.id,category:card.cat,tier:card.tier});
        // re-surface struggled card once within this session
        if(!sess.requeued.has(card.id)){sess.requeued.add(card.id);sess.deck.push(card);sess.total++;}
   }
@@ -674,14 +682,14 @@ function checkBadges(){
   MILESTONES.forEach(m=>{
     if(pct>=m&&!S.badges.includes(m)){
       S.badges.push(m);
-      log("badge_earned",{milestone:m});
+      log("level_complete",{level:m,score:S.points});
       toast("🏅 Badge unlocked: "+m+"% mastery!");
     }
   });
 }
 function endSession(finished){
-  log("session_end",{completed:sess.done,finished:!!finished});
-  save();
+  log("session_end",{completed:!!finished,reviewed:sess.done});
+  S.currentSession=null;save();
   if(finished)toast("Session complete · "+sess.done+" cards reviewed");
   sess=null;
   go("dash");
@@ -709,10 +717,23 @@ function renderAch(){
   });
   $("#logCount").textContent=S.logs.length;
   $("#logCode").textContent=S.user.code;
+  const g=$("#gameIdIn");
+  if(g&&document.activeElement!==g)g.value=S.gameId||"";
 }
+document.addEventListener("input",e=>{
+  if(e.target&&e.target.id==="gameIdIn"){S.gameId=e.target.value.trim();save();}
+});
 $("#exportLogs").onclick=()=>{
-  log("export_logs",{count:S.logs.length});
-  const jsonl=S.logs.map(e=>JSON.stringify(e)).join("\n");
+  const gid=(S.gameId||"GM-PENDING").trim();
+  log("export",{count:S.logs.length});
+  const jsonl=S.logs.map(e=>JSON.stringify({
+    ts:e.ts,
+    playerPseudoId:e.playerPseudoId,
+    sessionId:e.sessionId,
+    gameId:gid,
+    eventType:e.eventType,
+    payload:e.payload||{}
+  })).join("\n");
   const blob=new Blob([jsonl],{type:"application/x-ndjson"});
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");
@@ -725,7 +746,7 @@ $("#resetAll").onclick=()=>{
   if(!confirm("Reset ALL progress, points, badges and logs? This cannot be undone."))return;
   const code=S.user.code;
   S=fresh(code);save();
-  log("reset_progress");
+  log("reset",{});
   toast("Progress reset");
   renderAch();renderDash();
 };
