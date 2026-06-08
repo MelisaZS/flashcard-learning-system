@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flashcard Learning System · COM4061</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3eee3;
+    --paper:#fffdf8;
+    --ink:#16302e;
+    --ink-soft:#3c534f;
+    --muted:#8a8275;
+    --line:#e3dccd;
+    --teal:#13615c;
+    --teal-deep:#0c4744;
+    --amber:#c0732a;
+    --amber-soft:#f0d9bd;
+    --green:#2f7d52;
+    --red:#b15238;
+    --shadow:0 18px 40px -22px rgba(20,48,46,.45);
+    --radius:18px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:'Hanken Grotesk',sans-serif;
+    background:
+      radial-gradient(900px 600px at 85% -10%, rgba(19,97,92,.10), transparent 60%),
+      radial-gradient(700px 500px at 0% 110%, rgba(192,115,42,.10), transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    min-height:100%;
+  }
+  .wrap{max-width:1040px;margin:0 auto;padding:0 22px}
+
+  /* ---------- top bar ---------- */
+  header{
+    position:sticky;top:0;z-index:50;
+    backdrop-filter:blur(8px);
+    background:rgba(243,238,227,.82);
+    border-bottom:1px solid var(--line);
+  }
+  .bar{display:flex;align-items:center;gap:18px;padding:14px 0}
+  .brand{display:flex;align-items:center;gap:11px;font-family:'Fraunces',serif;font-weight:700;font-size:1.18rem;letter-spacing:-.01em}
+  .glyph{
+    width:34px;height:34px;border-radius:9px;flex:none;
+    background:linear-gradient(150deg,var(--teal),var(--teal-deep));
+    color:#fdf8ee;display:grid;place-items:center;font-family:'Fraunces',serif;font-size:1.05rem;font-weight:700;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);
+  }
+  .brand small{display:block;font-family:'Hanken Grotesk';font-weight:600;font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+  nav{margin-left:auto;display:flex;gap:4px}
+  nav button{
+    font:inherit;font-weight:600;font-size:.86rem;cursor:pointer;
+    background:none;border:none;color:var(--ink-soft);
+    padding:8px 14px;border-radius:10px;transition:.18s;
+  }
+  nav button:hover{background:rgba(19,97,92,.08);color:var(--ink)}
+  nav button.on{background:var(--ink);color:var(--paper)}
+
+  main{padding:34px 0 80px}
+  .view{display:none;animation:rise .45s cubic-bezier(.2,.7,.2,1) both}
+  .view.show{display:block}
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+  h1{font-family:'Fraunces',serif;font-weight:700;letter-spacing:-.02em;line-height:1.04}
+  .eyebrow{font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--amber);font-weight:700;margin-bottom:10px}
+  .lead{color:var(--ink-soft);max-width:60ch}
+
+  /* ---------- onboarding ---------- */
+  #onboard{position:fixed;inset:0;z-index:100;display:grid;place-items:center;
+    background:radial-gradient(700px 500px at 50% 0%,rgba(19,97,92,.14),transparent),var(--bg);padding:24px}
+  .ob-card{background:var(--paper);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);
+    max-width:480px;width:100%;padding:38px 34px}
+  .ob-card h1{font-size:1.9rem;margin:14px 0 8px}
+  .field{margin-top:22px}
+  .field label{display:block;font-weight:600;font-size:.82rem;margin-bottom:7px}
+  .field input{width:100%;font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fbf7ef;color:var(--ink)}
+  .field input:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(19,97,92,.13)}
+  .hint{font-size:.76rem;color:var(--muted);margin-top:6px}
+  .consent{display:flex;gap:10px;align-items:flex-start;margin-top:20px;font-size:.84rem;color:var(--ink-soft)}
+  .consent input{margin-top:3px;width:17px;height:17px;accent-color:var(--teal);flex:none}
+
+  /* ---------- buttons ---------- */
+  .btn{font:inherit;font-weight:600;cursor:pointer;border:none;border-radius:12px;padding:12px 20px;transition:.18s;display:inline-flex;align-items:center;gap:8px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn-primary{background:var(--teal);color:#fdf8ee;box-shadow:0 10px 22px -12px rgba(19,97,92,.8)}
+  .btn-primary:hover:not(:disabled){background:var(--teal-deep);transform:translateY(-1px)}
+  .btn-ink{background:var(--ink);color:var(--paper)}
+  .btn-ink:hover{transform:translateY(-1px)}
+  .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+  .btn-ghost:hover{background:rgba(0,0,0,.03)}
+  .btn-full{width:100%;justify-content:center;margin-top:26px}
+
+  /* ---------- dashboard stats ---------- */
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:30px}
+  .stat{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:20px;position:relative;overflow:hidden}
+  .stat::after{content:"";position:absolute;right:-20px;top:-20px;width:70px;height:70px;border-radius:50%;background:rgba(19,97,92,.06)}
+  .stat .k{font-family:'Fraunces',serif;font-size:2.1rem;font-weight:700;line-height:1;letter-spacing:-.02em}
+  .stat .l{font-size:.74rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-top:8px}
+  .stat.accent .k{color:var(--teal)}
+  .stat.amber .k{color:var(--amber)}
+
+  .panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:26px;margin-top:24px}
+  .panel h2{font-family:'Fraunces',serif;font-size:1.3rem;font-weight:600;margin-bottom:6px}
+  .row{display:flex;gap:14px;flex-wrap:wrap;margin-top:18px}
+
+  /* progress bar */
+  .pbar{height:12px;border-radius:99px;background:#ece5d6;overflow:hidden;border:1px solid var(--line)}
+  .pbar > i{display:block;height:100%;background:linear-gradient(90deg,var(--teal),var(--amber));border-radius:99px;transition:width .6s cubic-bezier(.2,.7,.2,1)}
+  .pmeta{display:flex;justify-content:space-between;font-size:.82rem;color:var(--ink-soft);margin-bottom:9px;font-weight:600}
+
+  /* badges */
+  .badges{display:flex;gap:14px;flex-wrap:wrap;margin-top:18px}
+  .badge{width:84px;text-align:center}
+  .badge .disc{width:64px;height:64px;margin:0 auto;border-radius:50%;display:grid;place-items:center;
+    font-family:'Fraunces',serif;font-weight:700;font-size:1rem;border:2px dashed var(--line);color:var(--muted);background:#faf6ee;transition:.3s}
+  .badge.earned .disc{border:2px solid var(--amber);background:linear-gradient(150deg,#fbe9d2,#f3d2a8);color:var(--amber);box-shadow:0 8px 18px -10px rgba(192,115,42,.6);border-style:solid}
+  .badge .cap{font-size:.72rem;color:var(--muted);margin-top:7px;font-weight:600}
+  .badge.earned .cap{color:var(--ink-soft)}
+
+  /* ---------- categories / setup ---------- */
+  .seg{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .seg button{font:inherit;font-weight:600;font-size:.85rem;cursor:pointer;padding:9px 16px;border-radius:99px;border:1px solid var(--line);background:#faf6ee;color:var(--ink-soft);transition:.16s}
+  .seg button:hover{border-color:var(--teal)}
+  .seg button.sel{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .setup-block{margin-top:22px}
+  .setup-block > .lbl{font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .cat-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:12px}
+  .cat-cards .cc{border:1px solid var(--line);background:#faf6ee;border-radius:14px;padding:16px;cursor:pointer;transition:.16s}
+  .cat-cards .cc:hover{border-color:var(--teal);transform:translateY(-2px)}
+  .cat-cards .cc.sel{border-color:var(--teal);background:#fff;box-shadow:0 10px 24px -16px rgba(19,97,92,.7)}
+  .cat-cards .cc h3{font-family:'Fraunces',serif;font-size:1.05rem;font-weight:600}
+  .cat-cards .cc p{font-size:.78rem;color:var(--muted);margin-top:4px}
+
+  /* ---------- flashcard ---------- */
+  .study-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+  .tagrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .chip{font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700;padding:5px 11px;border-radius:99px;background:var(--amber-soft);color:var(--amber)}
+  .chip.teal{background:rgba(19,97,92,.12);color:var(--teal)}
+  .chip.gray{background:#ece5d6;color:var(--ink-soft)}
+  .counter{font-weight:700;color:var(--ink-soft);font-size:.9rem}
+
+  .scene{perspective:1600px;margin:8px auto 0;max-width:680px}
+  .flip{position:relative;width:100%;min-height:320px;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.2,.7,.2,1);cursor:pointer}
+  .flip.flipped{transform:rotateY(180deg)}
+  .face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    border-radius:22px;border:1px solid var(--line);background:var(--paper);box-shadow:var(--shadow);
+    padding:40px 38px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+  .face .side{position:absolute;top:18px;left:22px;font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:var(--muted)}
+  .face .q{font-family:'Fraunces',serif;font-size:1.55rem;font-weight:600;line-height:1.22;letter-spacing:-.01em;max-width:30ch}
+  .face .a{font-size:1.08rem;color:var(--ink-soft);line-height:1.55;max-width:42ch}
+  .face .tap{position:absolute;bottom:18px;font-size:.78rem;color:var(--muted);font-weight:600}
+  .back{transform:rotateY(180deg);background:linear-gradient(160deg,#0f5552,#0c3f3c);border-color:#0c3f3c}
+  .back .side{color:rgba(255,255,255,.55)}
+  .back .a{color:#eef6f3}
+  .back .tap{color:rgba(255,255,255,.55)}
+
+  .study-actions{display:flex;gap:14px;justify-content:center;margin-top:26px}
+  .study-actions .btn{min-width:170px;justify-content:center}
+  .btn-known{background:var(--green);color:#fff}
+  .btn-known:hover{filter:brightness(1.06);transform:translateY(-1px)}
+  .btn-practice{background:#fff;border:1.5px solid var(--red);color:var(--red)}
+  .btn-practice:hover{background:#fcefe9;transform:translateY(-1px)}
+  .reveal-hint{text-align:center;color:var(--muted);margin-top:24px;font-size:.88rem;font-weight:600}
+
+  .toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%) translateY(20px);opacity:0;
+    background:var(--ink);color:var(--paper);padding:12px 20px;border-radius:99px;font-weight:600;font-size:.9rem;
+    box-shadow:var(--shadow);z-index:90;transition:.3s;pointer-events:none;display:flex;gap:9px;align-items:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .empty{text-align:center;padding:50px 20px}
+  .empty .em{font-family:'Fraunces',serif;font-size:1.5rem;font-weight:600;margin-bottom:8px}
+  .empty p{color:var(--muted);max-width:42ch;margin:0 auto 22px}
+
+  .pillrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .mini{font-size:.8rem;color:var(--ink-soft);font-weight:600;background:#faf6ee;border:1px solid var(--line);padding:7px 13px;border-radius:99px}
+  .mini b{color:var(--teal)}
+
+  footer{border-top:1px solid var(--line);padding:22px 0;color:var(--muted);font-size:.78rem;text-align:center}
+  .danger{color:var(--red)}
+
+  @media (max-width:760px){
+    .stat-grid{grid-template-columns:repeat(2,1fr)}
+    .cat-cards{grid-template-columns:1fr}
+    nav{gap:0}
+    nav button{padding:8px 9px;font-size:.8rem}
+    .face .q{font-size:1.3rem}
+    .study-actions{flex-direction:column}
+    .study-actions .btn{width:100%}
+    .brand small{display:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ ONBOARDING ============ -->
+<div id="onboard">
+  <div class="ob-card">
+    <div class="glyph" style="width:42px;height:42px;font-size:1.3rem">F</div>
+    <div class="eyebrow" style="margin-top:16px">COM4061 · İstanbul Kültür University</div>
+    <h1>Flashcard Learning System</h1>
+    <p class="lead" style="margin-top:8px;font-size:.95rem">Master UML diagrams, system analysis concepts, and design patterns at your own pace.</p>
+    <div class="field">
+      <label for="codeIn">Choose a pseudonymous code</label>
+      <input id="codeIn" placeholder="e.g. owl-42" autocomplete="off" maxlength="24">
+      <div class="hint">A nickname only — no real names. It anonymously links your study logs. Participation is voluntary.</div>
+    </div>
+    <label class="consent">
+      <input type="checkbox" id="consentIn">
+      <span>I understand participation is voluntary and my activity is recorded anonymously (stored only in my browser) to measure learning.</span>
+    </label>
+    <button class="btn btn-primary btn-full" id="startBtn" disabled>Start studying →</button>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<header>
+  <div class="wrap bar">
+    <div class="brand"><span class="glyph">F</span><span>Flashcard System<small>COM4061 · UML & System Analysis</small></span></div>
+    <nav>
+      <button data-go="dash" class="on">Dashboard</button>
+      <button data-go="cats">Study</button>
+      <button data-go="ach">Achievements</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- DASHBOARD -->
+  <section class="view show" id="v-dash">
+    <div class="eyebrow">Welcome back</div>
+    <h1 style="font-size:2.3rem">Your mastery journey, <span id="hiCode" style="color:var(--teal)"></span></h1>
+    <p class="lead" style="margin-top:10px">Flip cards, mark what you know, and revisit what needs practice. Progress is saved automatically in your browser.</p>
+
+    <div class="stat-grid">
+      <div class="stat accent"><div class="k" id="s-mastered">0</div><div class="l">Cards Mastered</div></div>
+      <div class="stat"><div class="k" id="s-total">0</div><div class="l">Total Cards</div></div>
+      <div class="stat amber"><div class="k" id="s-points">0</div><div class="l">Points</div></div>
+      <div class="stat"><div class="k" id="s-rate">0%</div><div class="l">Success Rate</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Overall progress</h2>
+      <div class="pmeta" style="margin-top:14px"><span>Mastery</span><span id="dash-pct">0%</span></div>
+      <div class="pbar"><i id="dash-fill" style="width:0%"></i></div>
+      <div class="pillrow">
+        <span class="mini">Known: <b id="m-known">0</b></span>
+        <span class="mini">Needs practice: <b id="m-practice">0</b></span>
+        <span class="mini">Not seen: <b id="m-new">0</b></span>
+      </div>
+      <div class="row">
+        <button class="btn btn-primary" data-go="cats">Continue studying</button>
+        <button class="btn btn-ghost" id="quickPractice">Practice weak cards</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Mastery badges</h2>
+      <p style="color:var(--muted);font-size:.88rem;margin-top:4px">Earn a badge at each completion milestone.</p>
+      <div class="badges" id="badgeRow"></div>
+    </div>
+  </section>
+
+  <!-- CATEGORIES / SETUP -->
+  <section class="view" id="v-cats">
+    <div class="eyebrow">Set up a session</div>
+    <h1 style="font-size:2.1rem">What would you like to study?</h1>
+
+    <div class="panel">
+      <div class="setup-block">
+        <div class="lbl">Category</div>
+        <div class="cat-cards" id="catCards"></div>
+      </div>
+
+      <div class="setup-block">
+        <div class="lbl">Difficulty tier</div>
+        <div class="seg" id="tierSeg">
+          <button data-tier="all" class="sel">All tiers</button>
+          <button data-tier="Beginner">Beginner</button>
+          <button data-tier="Intermediate">Intermediate</button>
+          <button data-tier="Advanced">Advanced</button>
+        </div>
+      </div>
+
+      <div class="setup-block">
+        <div class="lbl">Card order</div>
+        <div class="seg" id="orderSeg">
+          <button data-order="sequential" class="sel">Sequential</button>
+          <button data-order="shuffle">Shuffle</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <button class="btn btn-ink" id="beginBtn">Begin session →</button>
+        <span class="mini" id="deckCount" style="align-self:center"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- STUDY -->
+  <section class="view" id="v-study">
+    <div class="study-head">
+      <div class="tagrow">
+        <span class="chip teal" id="st-cat">UML</span>
+        <span class="chip gray" id="st-tier">All</span>
+        <span class="chip" id="st-mode" style="display:none">Practice</span>
+      </div>
+      <span class="counter" id="st-counter">1 / 10</span>
+    </div>
+
+    <div class="pmeta"><span>Session progress</span><span id="sess-pct">0%</span></div>
+    <div class="pbar" style="margin-bottom:22px"><i id="sess-fill" style="width:0%"></i></div>
+
+    <div class="scene">
+      <div class="flip" id="flip">
+        <div class="face front">
+          <span class="side">Question</span>
+          <div class="q" id="cardFront"></div>
+          <span class="tap">Tap to reveal answer</span>
+        </div>
+        <div class="face back">
+          <span class="side">Answer</span>
+          <div class="a" id="cardBack"></div>
+          <span class="tap">Tap to flip back</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="actionWrap">
+      <div class="reveal-hint" id="revealHint">Flip the card, then rate how well you knew it.</div>
+      <div class="study-actions" id="rateBtns" style="display:none">
+        <button class="btn btn-practice" id="bPractice">↺ Needs practice</button>
+        <button class="btn btn-known" id="bKnown">✓ I knew this</button>
+      </div>
+    </div>
+
+    <div class="row" style="justify-content:center;margin-top:30px">
+      <button class="btn btn-ghost" id="endSession">End session</button>
+    </div>
+  </section>
+
+  <!-- ACHIEVEMENTS -->
+  <section class="view" id="v-ach">
+    <div class="eyebrow">Your record</div>
+    <h1 style="font-size:2.1rem">Achievements</h1>
+
+    <div class="stat-grid">
+      <div class="stat accent"><div class="k" id="a-mastered">0</div><div class="l">Cards Mastered</div></div>
+      <div class="stat amber"><div class="k" id="a-rate">0%</div><div class="l">Success Rate</div></div>
+      <div class="stat"><div class="k" id="a-points">0</div><div class="l">Points</div></div>
+      <div class="stat"><div class="k" id="a-badges">0/4</div><div class="l">Badges Earned</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Milestone badges</h2>
+      <div class="badges" id="badgeRow2"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Mastery by category</h2>
+      <div id="catBars" style="margin-top:16px"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Session logs</h2>
+      <p style="color:var(--muted);font-size:.88rem;margin-top:4px">Your activity is stored locally as anonymous events. Export them as a JSONL file (one JSON event per line) to submit to your team / assessor.</p>
+      <div class="pillrow"><span class="mini">Recorded events: <b id="logCount">0</b></span><span class="mini">Code: <b id="logCode">—</b></span></div>
+      <div class="row">
+        <button class="btn btn-primary" id="exportLogs">⬇ Export session logs (.jsonl)</button>
+        <button class="btn btn-ghost danger" id="resetAll">Reset all progress</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="wrap">
+  Flashcard Learning System · Gamification Project · COM4061 · İstanbul Kültür University · runs locally, nothing is uploaded.
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   FLASHCARD LEARNING SYSTEM  —  single-file, LocalStorage app
+   ============================================================ */
+
+/* ---------- CARD CONTENT (54 cards) ---------- */
+const CARDS = [
+  // UML — Beginner
+  {id:"u01",cat:"UML",tier:"Beginner",front:"What does a UML class diagram represent?",back:"The static structure of a system: its classes, attributes, operations, and the relationships between them."},
+  {id:"u02",cat:"UML",tier:"Beginner",front:"What are the three compartments of a class box?",back:"Class name (top), attributes (middle), and operations/methods (bottom)."},
+  {id:"u03",cat:"UML",tier:"Beginner",front:"What symbol marks a public member?",back:"A plus sign ( + )."},
+  {id:"u04",cat:"UML",tier:"Beginner",front:"What symbol marks a private member?",back:"A minus sign ( − )."},
+  {id:"u05",cat:"UML",tier:"Beginner",front:"What symbol marks a protected member?",back:"A hash / pound sign ( # )."},
+  {id:"u06",cat:"UML",tier:"Beginner",front:"What is an actor in a use case diagram?",back:"An external entity — a person or another system — that interacts with the system to achieve a goal."},
+  {id:"u07",cat:"UML",tier:"Beginner",front:"How is a use case drawn?",back:"As an oval (ellipse) containing the name of the use case."},
+  {id:"u08",cat:"UML",tier:"Beginner",front:"What does a solid line between an actor and a use case mean?",back:"An association — the actor participates in (uses) that use case."},
+  // UML — Intermediate
+  {id:"u09",cat:"UML",tier:"Intermediate",front:"What does a hollow diamond mean in a class diagram?",back:"Aggregation — a 'has-a' whole/part relationship where the parts can exist independently of the whole."},
+  {id:"u10",cat:"UML",tier:"Intermediate",front:"What does a filled (solid) diamond mean?",back:"Composition — a strong whole/part relationship; the parts cannot exist without the whole."},
+  {id:"u11",cat:"UML",tier:"Intermediate",front:"What does a hollow triangle arrowhead represent?",back:"Generalization / inheritance — an 'is-a' relationship between a subclass and a superclass."},
+  {id:"u12",cat:"UML",tier:"Intermediate",front:"What does a dashed arrow with a hollow triangle head mean?",back:"Realization — a class implements an interface."},
+  {id:"u13",cat:"UML",tier:"Intermediate",front:"What does the multiplicity 1..* mean?",back:"One to many: at least one instance, with no fixed upper bound."},
+  {id:"u14",cat:"UML",tier:"Intermediate",front:"What does «include» mean in a use case diagram?",back:"The base use case always incorporates the behavior of the included use case (mandatory, reused behavior)."},
+  {id:"u15",cat:"UML",tier:"Intermediate",front:"What does «extend» mean?",back:"A use case optionally adds behavior to a base use case under a specific condition."},
+  {id:"u16",cat:"UML",tier:"Intermediate",front:"What is a lifeline in a sequence diagram?",back:"A vertical dashed line representing the existence of an object or participant over time."},
+  {id:"u17",cat:"UML",tier:"Intermediate",front:"What is an activation bar in a sequence diagram?",back:"A thin rectangle on a lifeline showing the period during which that object is executing or active."},
+  // UML — Advanced
+  {id:"u18",cat:"UML",tier:"Advanced",front:"How do aggregation and composition differ?",back:"Both are whole/part. In composition the part's lifecycle depends on the whole (delete whole → delete parts); in aggregation the parts can live independently."},
+  {id:"u19",cat:"UML",tier:"Advanced",front:"What does a solid arrowhead represent in a sequence diagram?",back:"A synchronous message — the caller waits (blocks) until it receives a response."},
+  {id:"u20",cat:"UML",tier:"Advanced",front:"What does an open (stick) arrowhead represent in a sequence diagram?",back:"An asynchronous message — the caller continues without waiting for a response."},
+  {id:"u21",cat:"UML",tier:"Advanced",front:"How is a return message shown in a sequence diagram?",back:"As a dashed line with an open arrowhead pointing back to the caller."},
+  {id:"u22",cat:"UML",tier:"Advanced",front:"What is an 'alt' combined fragment used for?",back:"To model alternative (if / else) interaction paths within a sequence diagram, each guarded by a condition."},
+
+  // Concepts (System Analysis) — Beginner
+  {id:"c01",cat:"Concepts",tier:"Beginner",front:"What is a functional requirement?",back:"A statement of what the system must do — a specific behavior, feature, or function it must provide."},
+  {id:"c02",cat:"Concepts",tier:"Beginner",front:"What is a non-functional requirement?",back:"A quality constraint on how the system operates — e.g. performance, security, usability, reliability."},
+  {id:"c03",cat:"Concepts",tier:"Beginner",front:"Who is a stakeholder?",back:"Anyone with an interest in, or who is affected by, the system — users, owners, regulators, developers."},
+  {id:"c04",cat:"Concepts",tier:"Beginner",front:"What is a use case (in analysis)?",back:"A description of how an actor interacts with the system to achieve a particular goal."},
+  {id:"c05",cat:"Concepts",tier:"Beginner",front:"What is the SDLC?",back:"The Systems Development Life Cycle — the phases a system passes through: planning, analysis, design, implementation, and maintenance."},
+  // Concepts — Intermediate
+  {id:"c06",cat:"Concepts",tier:"Intermediate",front:"What is the purpose of the analysis phase?",back:"To understand and document WHAT the system must do, capturing requirements — not yet deciding how to build it."},
+  {id:"c07",cat:"Concepts",tier:"Intermediate",front:"What distinguishes analysis from design?",back:"Analysis defines the requirements (the 'what'); design specifies the technical solution (the 'how')."},
+  {id:"c08",cat:"Concepts",tier:"Intermediate",front:"What is a domain model?",back:"A conceptual model of the real-world objects, concepts, and relationships within the problem area."},
+  {id:"c09",cat:"Concepts",tier:"Intermediate",front:"How does a use case differ from a scenario?",back:"A use case is the general goal-oriented description; a scenario is one specific path or instance through that use case."},
+  {id:"c10",cat:"Concepts",tier:"Intermediate",front:"What is scope creep?",back:"The uncontrolled growth of requirements or features beyond the originally agreed project scope."},
+  {id:"c11",cat:"Concepts",tier:"Intermediate",front:"What is a CRC card?",back:"A Class–Responsibility–Collaborator card used to brainstorm a class's responsibilities and the classes it collaborates with."},
+  // Concepts — Advanced
+  {id:"c12",cat:"Concepts",tier:"Advanced",front:"What is coupling?",back:"The degree of interdependence between modules. Lower (looser) coupling is preferred."},
+  {id:"c13",cat:"Concepts",tier:"Advanced",front:"What is cohesion?",back:"How strongly the elements of a module belong together toward a single purpose. Higher cohesion is preferred."},
+  {id:"c14",cat:"Concepts",tier:"Advanced",front:"Why aim for low coupling and high cohesion?",back:"It improves maintainability and reusability and reduces the ripple effect of changes across the system."},
+  {id:"c15",cat:"Concepts",tier:"Advanced",front:"How do verification and validation differ?",back:"Verification asks 'are we building it right?' (meets the spec). Validation asks 'are we building the right thing?' (meets user needs)."},
+  {id:"c16",cat:"Concepts",tier:"Advanced",front:"What is a traceability matrix?",back:"A table linking each requirement to its design, code, and test artifacts to ensure complete coverage."},
+  {id:"c17",cat:"Concepts",tier:"Advanced",front:"What is an iterative development approach?",back:"Building the system in repeated cycles, refining requirements, design, and product a little more each iteration."},
+
+  // Patterns — Beginner
+  {id:"p01",cat:"Patterns",tier:"Beginner",front:"What is a design pattern?",back:"A reusable, proven, general solution to a commonly recurring problem in software design."},
+  {id:"p02",cat:"Patterns",tier:"Beginner",front:"What are the three GoF pattern categories?",back:"Creational, Structural, and Behavioral patterns."},
+  {id:"p03",cat:"Patterns",tier:"Beginner",front:"What does the Singleton pattern ensure?",back:"That a class has only one instance, and provides a single global point of access to it."},
+  {id:"p04",cat:"Patterns",tier:"Beginner",front:"What is the Factory Method pattern?",back:"It defines an interface for creating an object but lets subclasses decide which concrete class to instantiate."},
+  // Patterns — Intermediate
+  {id:"p05",cat:"Patterns",tier:"Intermediate",front:"What problem does the Observer pattern solve?",back:"It lets many dependent objects (observers) be notified automatically whenever a subject's state changes."},
+  {id:"p06",cat:"Patterns",tier:"Intermediate",front:"What is the Strategy pattern?",back:"It defines a family of interchangeable algorithms and lets the algorithm vary independently from the clients that use it."},
+  {id:"p07",cat:"Patterns",tier:"Intermediate",front:"What is the Decorator pattern?",back:"It attaches additional responsibilities to an object dynamically by wrapping it, without changing its class."},
+  {id:"p08",cat:"Patterns",tier:"Intermediate",front:"What is the Adapter pattern?",back:"It converts the interface of a class into another interface a client expects, letting incompatible interfaces work together."},
+  {id:"p09",cat:"Patterns",tier:"Intermediate",front:"What is the Facade pattern?",back:"It provides a simplified, unified interface to a larger, more complex subsystem."},
+  // Patterns — Advanced
+  {id:"p10",cat:"Patterns",tier:"Advanced",front:"When prefer Strategy over inheritance?",back:"When behavior must change at runtime or to avoid a rigid class hierarchy — favoring composition over inheritance."},
+  {id:"p11",cat:"Patterns",tier:"Advanced",front:"How does Observer support loose coupling?",back:"The subject knows only the observer interface, not concrete observers, so subject and observers can vary independently."},
+  {id:"p12",cat:"Patterns",tier:"Advanced",front:"How do the Strategy and State patterns differ?",back:"Both swap behavior via composition, but State manages transitions between states (often triggering its own), while Strategy's algorithm is chosen by the client."},
+  {id:"p13",cat:"Patterns",tier:"Advanced",front:"What is the Open/Closed Principle, and which patterns support it?",back:"Entities should be open for extension but closed for modification. Decorator, Strategy, and Observer help achieve it."},
+  {id:"p14",cat:"Patterns",tier:"Advanced",front:"Why is Singleton sometimes called an anti-pattern?",back:"It introduces global state and hidden dependencies, which make unit testing and concurrency harder."},
+  {id:"p15",cat:"Patterns",tier:"Advanced",front:"What does 'program to an interface, not an implementation' mean?",back:"Depend on abstractions rather than concrete classes, so implementations can be swapped without changing client code."}
+];
+
+const CATS = [
+  {id:"UML",name:"UML Diagrams",desc:"Class, use case & sequence notation"},
+  {id:"Concepts",name:"System Analysis",desc:"Requirements, modeling & quality"},
+  {id:"Patterns",name:"Design Patterns",desc:"Creational, structural & behavioral"}
+];
+const MILESTONES=[25,50,75,100];
+const POINTS_KNOWN=10, POINTS_FLIP=2, POINTS_PRACTICE=3;
+
+/* ---------- STORAGE ---------- */
+const LS="fls_state_v1";
+let S=load();
+function load(){
+  try{const r=JSON.parse(localStorage.getItem(LS));if(r&&r.user)return r;}catch(e){}
+  return null;
+}
+function fresh(code){
+  const prog={};CARDS.forEach(c=>prog[c.id]={status:"new",flips:0,seen:0});
+  return {user:{code,consent:true,createdAt:new Date().toISOString()},
+          progress:prog,points:0,badges:[],logs:[]};
+}
+function save(){try{localStorage.setItem(LS,JSON.stringify(S));}catch(e){}}
+
+/* ---------- LOGGING ---------- */
+function log(event,extra={}){
+  S.logs.push(Object.assign({
+    ts:new Date().toISOString(),
+    user:S.user.code,
+    course:"COM4061",
+    event
+  },extra));
+  save();
+}
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const $$=s=>[...document.querySelectorAll(s)];
+function masteredCount(){return Object.values(S.progress).filter(p=>p.status==="known").length;}
+function practiceCount(){return Object.values(S.progress).filter(p=>p.status==="practice").length;}
+function newCount(){return Object.values(S.progress).filter(p=>p.status==="new").length;}
+function masteryPct(){return Math.round(masteredCount()/CARDS.length*100);}
+function successRate(){
+  const reviewed=Object.values(S.progress).filter(p=>p.status!=="new").length;
+  if(!reviewed)return 0;
+  return Math.round(masteredCount()/reviewed*100);
+}
+function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2200);}
+
+/* ---------- NAVIGATION ---------- */
+function go(view){
+  $$(".view").forEach(v=>v.classList.remove("show"));
+  $("#v-"+view).classList.add("show");
+  $$("nav button").forEach(b=>b.classList.toggle("on",b.dataset.go===view));
+  window.scrollTo({top:0,behavior:"smooth"});
+  if(view==="dash")renderDash();
+  if(view==="cats")renderCats();
+  if(view==="ach")renderAch();
+}
+$$("nav button").forEach(b=>b.onclick=()=>go(b.dataset.go));
+
+/* ---------- ONBOARDING ---------- */
+const codeIn=$("#codeIn"),consentIn=$("#consentIn"),startBtn=$("#startBtn");
+function checkOb(){startBtn.disabled=!(codeIn.value.trim().length>=2&&consentIn.checked);}
+codeIn.oninput=checkOb;consentIn.onchange=checkOb;
+startBtn.onclick=()=>{
+  S=fresh(codeIn.value.trim());save();
+  log("session_start",{detail:"first_run"});
+  $("#onboard").style.display="none";
+  boot();
+};
+function boot(){
+  $("#hiCode").textContent=S.user.code;
+  renderDash();
+}
+/* if returning user, skip onboarding */
+if(S){$("#onboard").style.display="none";boot();log("app_open");}
+
+/* ---------- DASHBOARD ---------- */
+function renderDash(){
+  $("#hiCode").textContent=S.user.code;
+  $("#s-mastered").textContent=masteredCount();
+  $("#s-total").textContent=CARDS.length;
+  $("#s-points").textContent=S.points;
+  $("#s-rate").textContent=successRate()+"%";
+  const pct=masteryPct();
+  $("#dash-pct").textContent=pct+"%";
+  $("#dash-fill").style.width=pct+"%";
+  $("#m-known").textContent=masteredCount();
+  $("#m-practice").textContent=practiceCount();
+  $("#m-new").textContent=newCount();
+  renderBadges("#badgeRow");
+}
+function renderBadges(sel){
+  const wrap=$(sel);wrap.innerHTML="";
+  MILESTONES.forEach(m=>{
+    const earned=S.badges.includes(m);
+    const d=document.createElement("div");
+    d.className="badge"+(earned?" earned":"");
+    d.innerHTML=`<div class="disc">${m}%</div><div class="cap">${earned?"Earned":"Locked"}</div>`;
+    wrap.appendChild(d);
+  });
+}
+$("#quickPractice").onclick=()=>{
+  if(practiceCount()===0){toast("No cards marked for practice yet");return;}
+  startSession({cat:"all",tier:"all",order:"shuffle",practiceOnly:true});
+};
+
+/* ---------- CATEGORY SETUP ---------- */
+let setup={cat:"all",tier:"all",order:"sequential"};
+function renderCats(){
+  const wrap=$("#catCards");wrap.innerHTML="";
+  const all=document.createElement("div");
+  all.className="cc"+(setup.cat==="all"?" sel":"");
+  all.dataset.cat="all";
+  all.innerHTML=`<h3>All categories</h3><p>${CARDS.length} cards total</p>`;
+  wrap.appendChild(all);
+  CATS.forEach(c=>{
+    const n=CARDS.filter(x=>x.cat===c.id).length;
+    const el=document.createElement("div");
+    el.className="cc"+(setup.cat===c.id?" sel":"");
+    el.dataset.cat=c.id;
+    el.innerHTML=`<h3>${c.name}</h3><p>${c.desc} · ${n} cards</p>`;
+    wrap.appendChild(el);
+  });
+  $$("#catCards .cc").forEach(el=>el.onclick=()=>{setup.cat=el.dataset.cat;renderCats();updateDeckCount();});
+  $$("#tierSeg button").forEach(b=>b.classList.toggle("sel",b.dataset.tier===setup.tier));
+  $$("#orderSeg button").forEach(b=>b.classList.toggle("sel",b.dataset.order===setup.order));
+  updateDeckCount();
+}
+$$("#tierSeg button").forEach(b=>b.onclick=()=>{setup.tier=b.dataset.tier;renderCats();});
+$$("#orderSeg button").forEach(b=>b.onclick=()=>{setup.order=b.dataset.order;renderCats();});
+function matchDeck(cfg){
+  return CARDS.filter(c=>(cfg.cat==="all"||c.cat===cfg.cat)&&(cfg.tier==="all"||c.tier===cfg.tier));
+}
+function updateDeckCount(){
+  const n=matchDeck(setup).length;
+  $("#deckCount").textContent=n+" card"+(n===1?"":"s")+" in this selection";
+  $("#beginBtn").disabled=n===0;
+}
+$("#beginBtn").onclick=()=>startSession(Object.assign({practiceOnly:false},setup));
+
+/* ---------- STUDY SESSION ---------- */
+let sess=null;
+function startSession(cfg){
+  let deck=matchDeck(cfg);
+  if(cfg.practiceOnly)deck=deck.filter(c=>S.progress[c.id].status==="practice");
+  if(cfg.order==="shuffle")deck=shuffle(deck.slice());
+  if(deck.length===0){toast("No cards match — adjust your selection");go("cats");return;}
+  sess={deck,i:0,cfg,requeued:new Set(),done:0,total:deck.length};
+  log("session_begin",{category:cfg.cat,tier:cfg.tier,order:cfg.order,mode:cfg.practiceOnly?"practice":"normal",deckSize:deck.length});
+  // labels
+  $("#st-cat").textContent=cfg.cat==="all"?"All categories":(CATS.find(c=>c.id===cfg.cat)||{}).name;
+  $("#st-tier").textContent=cfg.tier==="all"?"All tiers":cfg.tier;
+  $("#st-mode").style.display=cfg.practiceOnly?"inline-block":"none";
+  go("study");
+  showCard();
+}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+const flip=$("#flip");
+function showCard(){
+  const card=sess.deck[sess.i];
+  flip.classList.remove("flipped");
+  $("#rateBtns").style.display="none";
+  $("#revealHint").style.display="block";
+  setTimeout(()=>{
+    $("#cardFront").textContent=card.front;
+    $("#cardBack").textContent=card.back;
+  },flip.classList.contains("flipped")?0:0);
+  $("#cardFront").textContent=card.front;
+  $("#cardBack").textContent=card.back;
+  const cur=sess.i+1;
+  $("#st-counter").textContent=cur+" / "+sess.total;
+  const pct=Math.round(sess.done/sess.total*100);
+  $("#sess-pct").textContent=pct+"%";
+  $("#sess-fill").style.width=pct+"%";
+  sess.flippedThis=false;
+}
+flip.onclick=()=>{
+  flip.classList.toggle("flipped");
+  if(flip.classList.contains("flipped")&&!sess.flippedThis){
+    sess.flippedThis=true;
+    const card=sess.deck[sess.i];
+    S.progress[card.id].flips++;S.progress[card.id].seen++;
+    S.points+=POINTS_FLIP;
+    log("card_flip",{cardId:card.id,category:card.cat,tier:card.tier});
+    save();
+    $("#revealHint").style.display="none";
+    $("#rateBtns").style.display="flex";
+  }
+};
+$("#bKnown").onclick=()=>rate("known");
+$("#bPractice").onclick=()=>rate("practice");
+function rate(status){
+  const card=sess.deck[sess.i];
+  const prev=S.progress[card.id].status;
+  S.progress[card.id].status=status;
+  if(status==="known"){S.points+=POINTS_KNOWN;log("card_known",{cardId:card.id,category:card.cat,tier:card.tier});}
+  else{S.points+=POINTS_PRACTICE;log("card_practice",{cardId:card.id,category:card.cat,tier:card.tier});
+       // re-surface struggled card once within this session
+       if(!sess.requeued.has(card.id)){sess.requeued.add(card.id);sess.deck.push(card);sess.total++;}
+  }
+  checkBadges();
+  save();
+  sess.done++;
+  sess.i++;
+  if(sess.i>=sess.deck.length){endSession(true);}
+  else showCard();
+}
+function checkBadges(){
+  const pct=masteryPct();
+  MILESTONES.forEach(m=>{
+    if(pct>=m&&!S.badges.includes(m)){
+      S.badges.push(m);
+      log("badge_earned",{milestone:m});
+      toast("🏅 Badge unlocked: "+m+"% mastery!");
+    }
+  });
+}
+function endSession(finished){
+  log("session_end",{completed:sess.done,finished:!!finished});
+  save();
+  if(finished)toast("Session complete · "+sess.done+" cards reviewed");
+  sess=null;
+  go("dash");
+}
+$("#endSession").onclick=()=>{if(sess)endSession(false);else go("dash");};
+
+/* ---------- ACHIEVEMENTS ---------- */
+function renderAch(){
+  $("#a-mastered").textContent=masteredCount();
+  $("#a-rate").textContent=successRate()+"%";
+  $("#a-points").textContent=S.points;
+  $("#a-badges").textContent=S.badges.length+"/4";
+  renderBadges("#badgeRow2");
+  // category bars
+  const wrap=$("#catBars");wrap.innerHTML="";
+  CATS.forEach(c=>{
+    const list=CARDS.filter(x=>x.cat===c.id);
+    const known=list.filter(x=>S.progress[x.id].status==="known").length;
+    const pct=Math.round(known/list.length*100);
+    const row=document.createElement("div");
+    row.style.marginBottom="16px";
+    row.innerHTML=`<div class="pmeta"><span>${c.name}</span><span>${known}/${list.length} · ${pct}%</span></div>
+                   <div class="pbar"><i style="width:${pct}%"></i></div>`;
+    wrap.appendChild(row);
+  });
+  $("#logCount").textContent=S.logs.length;
+  $("#logCode").textContent=S.user.code;
+}
+$("#exportLogs").onclick=()=>{
+  log("export_logs",{count:S.logs.length});
+  const jsonl=S.logs.map(e=>JSON.stringify(e)).join("\n");
+  const blob=new Blob([jsonl],{type:"application/x-ndjson"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download="gpaf_play_logs_"+S.user.code+".jsonl";a.click();
+  URL.revokeObjectURL(url);
+  renderAch();
+  toast("Exported "+S.logs.length+" events");
+};
+$("#resetAll").onclick=()=>{
+  if(!confirm("Reset ALL progress, points, badges and logs? This cannot be undone."))return;
+  const code=S.user.code;
+  S=fresh(code);save();
+  log("reset_progress");
+  toast("Progress reset");
+  renderAch();renderDash();
+};
+</script>
+</body>
+</html>
